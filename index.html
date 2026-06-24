@@ -219,12 +219,13 @@
   <div class="sync-status">
     <span class="sync-dot" id="syncDot"></span>
     <span id="syncLabel">подключение...</span>
+    <span id="deviceCount" style="margin-left:10px;color:#bbb;font-size:0.7rem;letter-spacing:0.08em;"></span>
   </div>
 
   <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-    import { getDatabase, ref, set, onValue }
+    import { getDatabase, ref, set, onValue, onDisconnect, serverTimestamp, push, remove }
       from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
 
     const firebaseConfig = {
@@ -248,8 +249,9 @@
     const onLabel   = document.getElementById('onLabel');
     const offLabel  = document.getElementById('offLabel');
     const modeBtns  = document.querySelectorAll('.mode-btn');
-    const syncDot   = document.getElementById('syncDot');
-    const syncLabel = document.getElementById('syncLabel');
+    const syncDot     = document.getElementById('syncDot');
+    const syncLabel   = document.getElementById('syncLabel');
+    const deviceCount = document.getElementById('deviceCount');
 
     let currentMode = 'siren';
     let stopFn = null;
@@ -267,6 +269,23 @@
       if (ctx.state === 'suspended') ctx.resume();
       return ctx;
     }
+
+    // ── Presence: отслеживаем кол-во устройств ──
+    const connectedRef  = ref(db, '.info/connected');
+    const devicesRef    = ref(db, 'siren/devices');
+
+    onValue(connectedRef, (snap) => {
+      if (!snap.val()) return;
+      // Регистрируем себя, при отключении — удаляемся автоматически
+      const myRef = push(devicesRef);
+      onDisconnect(myRef).remove();
+      set(myRef, { t: Date.now() });
+    });
+
+    onValue(devicesRef, (snap) => {
+      const count = snap.exists() ? Object.keys(snap.val()).length : 0;
+      deviceCount.textContent = `· ${count} уст.`;
+    });
 
     // ── ПИЗДЕЦ (объявляем раньше unlock) ──
     const pizdecBtn   = document.getElementById('pizdecBtn');
