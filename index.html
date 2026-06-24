@@ -274,12 +274,13 @@
 
     // ── ПИЗДЕЦ ──
     const pizdecBtn   = document.getElementById('pizdecBtn');
+    const pizdecRef   = ref(db, 'siren/pizdec');
     const pizdecAudio = new Audio('YUrijj_Levitan_-_Vnimanie_Govorit_Moskva_o_nachale_vojjny_74878018.mp3');
     pizdecAudio.loop  = true;
 
-    pizdecBtn.addEventListener('click', () => {
-      if (pizdecAudio.paused) {
-        pizdecAudio.play();
+    function applyPizdec(on) {
+      if (on) {
+        pizdecAudio.play().catch(() => {});
         pizdecBtn.classList.add('playing');
         pizdecBtn.textContent = '■ ПИЗДЕЦ';
       } else {
@@ -288,6 +289,18 @@
         pizdecBtn.classList.remove('playing');
         pizdecBtn.textContent = 'ПИЗДЕЦ';
       }
+    }
+
+    onValue(pizdecRef, (snap) => {
+      const on = snap.val();
+      if (on === null) return;
+      const isPlaying = !pizdecAudio.paused;
+      if (on !== isPlaying) applyPizdec(on);
+    });
+
+    pizdecBtn.addEventListener('click', () => {
+      const nowPlaying = !pizdecAudio.paused;
+      set(pizdecRef, !nowPlaying);
     });
 
     // ── Sound engines ──
