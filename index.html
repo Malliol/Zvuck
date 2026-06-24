@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sound Toggle</title>
+  <title>ОСГО СИРЕНА</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -13,41 +13,42 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: #0f0f0f;
+      background: #ffffff;
       font-family: 'Segoe UI', sans-serif;
-      color: #eee;
-      gap: 32px;
+      color: #111;
+      gap: 36px;
     }
 
     h1 {
-      font-size: 1.4rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: #888;
+      font-size: 1.3rem;
+      letter-spacing: 0.2em;
+      font-weight: 600;
+      color: #111;
     }
 
-    /* Toggle switch */
     .toggle-wrap {
       display: flex;
       align-items: center;
-      gap: 20px;
+      gap: 18px;
     }
 
     .label {
-      font-size: 1rem;
+      font-size: 0.95rem;
+      font-weight: 700;
       letter-spacing: 0.08em;
-      color: #555;
-      transition: color 0.3s;
-      min-width: 40px;
+      color: #ccc;
+      transition: color 0.25s;
+      min-width: 36px;
     }
 
-    .label.active { color: #00e5ff; }
+    #offLabel.active { color: #e53935; }
+    #onLabel.active  { color: #43a047; }
 
     input[type="checkbox"] { display: none; }
 
     .switch {
       position: relative;
-      width: 90px;
+      width: 88px;
       height: 44px;
       cursor: pointer;
     }
@@ -55,10 +56,10 @@
     .track {
       position: absolute;
       inset: 0;
-      background: #222;
+      background: #f0f0f0;
       border-radius: 22px;
-      border: 2px solid #333;
-      transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+      border: 2px solid #ddd;
+      transition: background 0.25s, border-color 0.25s;
     }
 
     .knob {
@@ -67,52 +68,51 @@
       left: 5px;
       width: 30px;
       height: 30px;
-      background: #444;
+      background: #e53935;
       border-radius: 50%;
-      transition: transform 0.3s cubic-bezier(.4,0,.2,1), background 0.3s, box-shadow 0.3s;
+      transition: transform 0.3s cubic-bezier(.4,0,.2,1), background 0.25s;
     }
 
     input:checked + .switch .track {
-      background: #003d4d;
-      border-color: #00e5ff;
-      box-shadow: 0 0 18px #00e5ff55;
+      background: #f0f0f0;
+      border-color: #43a047;
     }
 
     input:checked + .switch .knob {
-      transform: translateX(46px);
-      background: #00e5ff;
-      box-shadow: 0 0 10px #00e5ffaa;
+      transform: translateX(44px);
+      background: #43a047;
     }
 
     .status {
-      font-size: 0.85rem;
-      letter-spacing: 0.12em;
-      color: #444;
-      transition: color 0.3s;
+      font-size: 0.8rem;
+      letter-spacing: 0.15em;
+      color: #bbb;
+      transition: color 0.25s;
     }
 
-    .status.on { color: #00e5ff; }
+    .status.on { color: #43a047; }
 
-    /* Visualizer */
     .bars {
       display: flex;
       align-items: flex-end;
       gap: 5px;
       height: 40px;
       opacity: 0;
-      transition: opacity 0.5s;
+      transition: opacity 0.4s;
     }
 
     .bars.visible { opacity: 1; }
 
     .bar {
       width: 6px;
-      background: #00e5ff;
-      border-radius: 3px 3px 0 0;
-      animation: none;
+      background: #43a047;
+      border-radius: 2px 2px 0 0;
+      height: 4px;
     }
 
-    .bars.visible .bar { animation: bounce var(--d) ease-in-out infinite alternate; }
+    .bars.visible .bar {
+      animation: bounce var(--d) ease-in-out infinite alternate;
+    }
 
     @keyframes bounce {
       from { height: 4px; }
@@ -122,10 +122,10 @@
 </head>
 <body>
 
-  <h1>Sound Toggle</h1>
+  <h1>ОСГО СИРЕНА</h1>
 
   <div class="toggle-wrap">
-    <span class="label" id="offLabel">OFF</span>
+    <span class="label active" id="offLabel">OFF</span>
     <label>
       <input type="checkbox" id="toggle" />
       <div class="switch">
@@ -139,55 +139,66 @@
   <div class="status" id="status">нажми тумблер</div>
 
   <div class="bars" id="bars">
-    <div class="bar" style="--d:.6s;--h:28px"></div>
-    <div class="bar" style="--d:.4s;--h:36px"></div>
-    <div class="bar" style="--d:.7s;--h:20px"></div>
-    <div class="bar" style="--d:.5s;--h:40px"></div>
-    <div class="bar" style="--d:.3s;--h:24px"></div>
-    <div class="bar" style="--d:.8s;--h:32px"></div>
-    <div class="bar" style="--d:.45s;--h:18px"></div>
+    <div class="bar" style="--d:.5s;--h:24px"></div>
+    <div class="bar" style="--d:.35s;--h:38px"></div>
+    <div class="bar" style="--d:.65s;--h:18px"></div>
+    <div class="bar" style="--d:.45s;--h:40px"></div>
+    <div class="bar" style="--d:.3s;--h:22px"></div>
+    <div class="bar" style="--d:.7s;--h:34px"></div>
+    <div class="bar" style="--d:.4s;--h:16px"></div>
   </div>
 
   <script>
-    const toggle = document.getElementById('toggle');
-    const status = document.getElementById('status');
-    const bars   = document.getElementById('bars');
+    const toggle  = document.getElementById('toggle');
+    const status  = document.getElementById('status');
+    const bars    = document.getElementById('bars');
     const onLabel  = document.getElementById('onLabel');
     const offLabel = document.getElementById('offLabel');
 
-    let ctx, oscillator, gainNode;
+    let ctx, osc, gain, lfo;
 
-    function startSound() {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
+    function startSiren() {
+      ctx  = new (window.AudioContext || window.webkitAudioContext)();
 
-      gainNode = ctx.createGain();
-      gainNode.gain.setValueAtTime(0, ctx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.3);
-      gainNode.connect(ctx.destination);
+      gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.2);
+      gain.connect(ctx.destination);
 
-      oscillator = ctx.createOscillator();
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(110, ctx.currentTime);
-      oscillator.connect(gainNode);
-      oscillator.start();
+      osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.value = 600;
+      osc.connect(gain);
+
+      lfo = ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = 0.8;
+
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.value = 350;
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc.frequency);
+
+      lfo.start();
+      osc.start();
     }
 
-    function stopSound() {
+    function stopSiren() {
       if (!ctx) return;
-      gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
-      setTimeout(() => { ctx.close(); ctx = null; }, 350);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.25);
+      setTimeout(() => { ctx.close(); ctx = null; }, 300);
     }
 
     toggle.addEventListener('change', () => {
       if (toggle.checked) {
-        startSound();
-        status.textContent = 'играет...';
+        startSiren();
+        status.textContent = 'сирена активна';
         status.classList.add('on');
         bars.classList.add('visible');
         onLabel.classList.add('active');
         offLabel.classList.remove('active');
       } else {
-        stopSound();
+        stopSiren();
         status.textContent = 'выключено';
         status.classList.remove('on');
         bars.classList.remove('visible');
