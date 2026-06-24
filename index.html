@@ -26,7 +26,6 @@
       color: #111;
     }
 
-    /* Main toggle */
     .toggle-wrap {
       display: flex;
       align-items: center;
@@ -93,7 +92,6 @@
 
     .status.on { color: #43a047; }
 
-    /* Bars */
     .bars {
       display: flex;
       align-items: flex-end;
@@ -121,7 +119,6 @@
       to   { height: var(--h); }
     }
 
-    /* Mode selector */
     .mode-selector {
       display: flex;
       border: 1.5px solid #ddd;
@@ -144,10 +141,26 @@
     }
 
     .mode-btn:last-child { border-right: none; }
+    .mode-btn.active { background: #111; color: #fff; }
 
-    .mode-btn.active {
-      background: #111;
-      color: #fff;
+    .sync-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ccc;
+      transition: background 0.3s;
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    .sync-dot.connected { background: #43a047; }
+
+    .sync-status {
+      font-size: 0.7rem;
+      color: #bbb;
+      letter-spacing: 0.08em;
+      display: flex;
+      align-items: center;
     }
   </style>
 </head>
@@ -179,150 +192,115 @@
     <div class="bar" style="--d:.4s;--h:16px"></div>
   </div>
 
-  <!-- Mode selector -->
   <div class="mode-selector">
     <button class="mode-btn active" data-mode="siren">1 Сирена</button>
     <button class="mode-btn" data-mode="doom">2 Дум</button>
     <button class="mode-btn" data-mode="pew">3 Пиу пиу</button>
   </div>
 
-  <script>
+  <div class="sync-status">
+    <span class="sync-dot" id="syncDot"></span>
+    <span id="syncLabel">подключение...</span>
+  </div>
+
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue, serverTimestamp }
+      from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAHvEEtwfa4OGbRCCwfyylMiPd90YcFbZ4",
+      authDomain: "flutter-ai-playground-ccfb8.firebaseapp.com",
+      databaseURL: "https://flutter-ai-playground-ccfb8-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "flutter-ai-playground-ccfb8",
+      storageBucket: "flutter-ai-playground-ccfb8.firebasestorage.app",
+      messagingSenderId: "1066476650880",
+      appId: "1:1066476650880:web:c4aa179a096eddcfd6c165"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getDatabase(app);
+    const stateRef = ref(db, 'siren/state');
+
+    // ── UI refs ──
     const toggle   = document.getElementById('toggle');
     const statusEl = document.getElementById('status');
     const bars     = document.getElementById('bars');
     const onLabel  = document.getElementById('onLabel');
     const offLabel = document.getElementById('offLabel');
     const modeBtns = document.querySelectorAll('.mode-btn');
+    const syncDot  = document.getElementById('syncDot');
+    const syncLabel = document.getElementById('syncLabel');
 
     let currentMode = 'siren';
     let ctx = null;
     let stopFn = null;
+    let ignoreNextChange = false; // prevent feedback loop
 
-    // ── helpers ──────────────────────────────────────────────
-    function note(freq) {
-      // convert midi-like frequency
-      return freq;
-    }
-
-    // ── SIREN ────────────────────────────────────────────────
+    // ── Sound engines ──
     function startSiren(c) {
       const gain = c.createGain();
       gain.gain.setValueAtTime(0, c.currentTime);
       gain.gain.linearRampToValueAtTime(0.4, c.currentTime + 0.2);
       gain.connect(c.destination);
-
       const osc = c.createOscillator();
-      osc.type = 'sawtooth';
-      osc.frequency.value = 600;
-      osc.connect(gain);
-
+      osc.type = 'sawtooth'; osc.frequency.value = 600; osc.connect(gain);
       const lfo = c.createOscillator();
-      lfo.type = 'sine';
-      lfo.frequency.value = 0.8;
-      const lfoGain = c.createGain();
-      lfoGain.gain.value = 350;
-      lfo.connect(lfoGain);
-      lfoGain.connect(osc.frequency);
-
+      lfo.type = 'sine'; lfo.frequency.value = 0.8;
+      const lfoGain = c.createGain(); lfoGain.gain.value = 350;
+      lfo.connect(lfoGain); lfoGain.connect(osc.frequency);
       lfo.start(); osc.start();
-
-      return () => {
-        gain.gain.linearRampToValueAtTime(0, c.currentTime + 0.25);
-      };
+      return () => { gain.gain.linearRampToValueAtTime(0, c.currentTime + 0.25); };
     }
 
-    // ── DOOM E1M1 ────────────────────────────────────────────
-    // Simplified riff: E - E - D - E (repeating)
     const doomNotes = [
-      // [freq, duration_sec, gap_sec]
-      [164.81, 0.12, 0.03],
-      [164.81, 0.12, 0.03],
-      [130.81, 0.12, 0.03],
-      [164.81, 0.18, 0.06],
-      [196.00, 0.12, 0.03],
-      [174.61, 0.12, 0.03],
-      [155.56, 0.12, 0.03],
-      [130.81, 0.12, 0.03],
-      [164.81, 0.12, 0.03],
-      [196.00, 0.12, 0.03],
-      [220.00, 0.18, 0.06],
-      [196.00, 0.12, 0.03],
-      [174.61, 0.12, 0.03],
-      [164.81, 0.18, 0.10],
+      [164.81,.12,.03],[164.81,.12,.03],[130.81,.12,.03],[164.81,.18,.06],
+      [196.00,.12,.03],[174.61,.12,.03],[155.56,.12,.03],[130.81,.12,.03],
+      [164.81,.12,.03],[196.00,.12,.03],[220.00,.18,.06],[196.00,.12,.03],
+      [174.61,.12,.03],[164.81,.18,.10],
     ];
 
     function startDoom(c) {
-      const master = c.createGain();
-      master.gain.setValueAtTime(0.35, c.currentTime);
-      master.connect(c.destination);
-
+      const master = c.createGain(); master.gain.value = 0.35; master.connect(c.destination);
       let alive = true;
-
       function playRiff() {
         if (!alive) return;
         let t = c.currentTime + 0.05;
         doomNotes.forEach(([freq, dur, gap]) => {
           const g = c.createGain();
-          g.gain.setValueAtTime(0.8, t);
-          g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+          g.gain.setValueAtTime(0.8, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
           g.connect(master);
-
-          const o = c.createOscillator();
-          o.type = 'square';
-          o.frequency.value = freq;
-          o.connect(g);
-          o.start(t);
-          o.stop(t + dur);
-
+          const o = c.createOscillator(); o.type = 'square'; o.frequency.value = freq;
+          o.connect(g); o.start(t); o.stop(t + dur);
           t += dur + gap;
         });
-        const total = doomNotes.reduce((s, [,d,g]) => s + d + g, 0);
+        const total = doomNotes.reduce((s,[,d,g]) => s+d+g, 0);
         setTimeout(() => playRiff(), total * 1000 + 50);
       }
-
       playRiff();
-
-      return () => {
-        alive = false;
-        master.gain.linearRampToValueAtTime(0, c.currentTime + 0.2);
-      };
+      return () => { alive = false; master.gain.linearRampToValueAtTime(0, c.currentTime + 0.2); };
     }
 
-    // ── PEW PEW ──────────────────────────────────────────────
     function startPew(c) {
-      const master = c.createGain();
-      master.gain.value = 0.5;
-      master.connect(c.destination);
-
+      const master = c.createGain(); master.gain.value = 0.5; master.connect(c.destination);
       let alive = true;
-
       function pew() {
         if (!alive) return;
         const g = c.createGain();
         g.gain.setValueAtTime(0.6, c.currentTime);
         g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.25);
         g.connect(master);
-
-        const o = c.createOscillator();
-        o.type = 'sine';
+        const o = c.createOscillator(); o.type = 'sine';
         o.frequency.setValueAtTime(1200, c.currentTime);
         o.frequency.exponentialRampToValueAtTime(200, c.currentTime + 0.25);
-        o.connect(g);
-        o.start();
-        o.stop(c.currentTime + 0.26);
-
+        o.connect(g); o.start(); o.stop(c.currentTime + 0.26);
         setTimeout(() => pew(), 350);
       }
-
       pew();
-
-      return () => {
-        alive = false;
-        master.gain.linearRampToValueAtTime(0, c.currentTime + 0.15);
-      };
+      return () => { alive = false; master.gain.linearRampToValueAtTime(0, c.currentTime + 0.15); };
     }
 
-    // ── CONTROL ──────────────────────────────────────────────
     const starters = { siren: startSiren, doom: startDoom, pew: startPew };
     const labels   = { siren: 'сирена активна', doom: 'дум играет', pew: 'пиу пиу пиу...' };
 
@@ -338,9 +316,10 @@
       setTimeout(() => { if (ctx) { ctx.close(); ctx = null; } }, 350);
     }
 
-    toggle.addEventListener('change', () => {
-      if (toggle.checked) {
-        startSound();
+    function applyState(on) {
+      toggle.checked = on;
+      if (on) {
+        if (!ctx) startSound();
         statusEl.textContent = labels[currentMode];
         statusEl.classList.add('on');
         bars.classList.add('visible');
@@ -354,15 +333,46 @@
         onLabel.classList.remove('active');
         offLabel.classList.add('active');
       }
+    }
+
+    // ── Firebase listener (remote changes) ──
+    onValue(stateRef, (snapshot) => {
+      syncDot.classList.add('connected');
+      syncLabel.textContent = 'синхронизировано';
+
+      const data = snapshot.val();
+      if (data === null) return;
+
+      const on   = data.on;
+      const mode = data.mode || 'siren';
+
+      // sync mode buttons
+      if (mode !== currentMode) {
+        currentMode = mode;
+        modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+      }
+
+      // apply toggle only if state differs (avoid loop)
+      if (on !== toggle.checked) {
+        ignoreNextChange = true;
+        applyState(on);
+      }
+    }, (err) => {
+      syncLabel.textContent = 'ошибка связи';
     });
 
+    // ── Local toggle → write to Firebase ──
+    toggle.addEventListener('change', () => {
+      if (ignoreNextChange) { ignoreNextChange = false; return; }
+      set(stateRef, { on: toggle.checked, mode: currentMode });
+    });
+
+    // ── Mode buttons ──
     modeBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         modeBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentMode = btn.dataset.mode;
-
-        // restart if currently playing
         if (toggle.checked) {
           stopSound();
           setTimeout(() => {
@@ -370,6 +380,8 @@
             statusEl.textContent = labels[currentMode];
           }, 400);
         }
+        // sync mode to Firebase
+        set(stateRef, { on: toggle.checked, mode: currentMode });
       });
     });
   </script>
