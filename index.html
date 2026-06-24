@@ -143,6 +143,22 @@
     .mode-btn:last-child { border-right: none; }
     .mode-btn.active { background: #111; color: #fff; }
 
+    .pizdec-btn {
+      padding: 14px 32px;
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      background: #e53935;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .pizdec-btn:active { transform: scale(0.96); }
+    .pizdec-btn.playing { background: #b71c1c; }
+
     .sync-dot {
       width: 8px;
       height: 8px;
@@ -197,6 +213,8 @@
     <button class="mode-btn" data-mode="doom">2 Дум</button>
     <button class="mode-btn" data-mode="pew">3 Пиу пиу</button>
   </div>
+
+  <button class="pizdec-btn" id="pizdecBtn">ПИЗДЕЦ</button>
 
   <div class="sync-status">
     <span class="sync-dot" id="syncDot"></span>
@@ -253,6 +271,24 @@
     // Разблокируем AudioContext при первом любом касании страницы
     document.addEventListener('touchstart', () => ensureCtx(), { once: true });
     document.addEventListener('mousedown',  () => ensureCtx(), { once: true });
+
+    // ── ПИЗДЕЦ ──
+    const pizdecBtn   = document.getElementById('pizdecBtn');
+    const pizdecAudio = new Audio('YUrijj_Levitan_-_Vnimanie_Govorit_Moskva_o_nachale_vojjny_74878018.mp3');
+    pizdecAudio.loop  = true;
+
+    pizdecBtn.addEventListener('click', () => {
+      if (pizdecAudio.paused) {
+        pizdecAudio.play();
+        pizdecBtn.classList.add('playing');
+        pizdecBtn.textContent = '■ ПИЗДЕЦ';
+      } else {
+        pizdecAudio.pause();
+        pizdecAudio.currentTime = 0;
+        pizdecBtn.classList.remove('playing');
+        pizdecBtn.textContent = 'ПИЗДЕЦ';
+      }
+    });
 
     // ── Sound engines ──
     function startSiren(c) {
