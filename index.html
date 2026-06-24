@@ -271,15 +271,19 @@
     }
 
     // ── Presence: отслеживаем кол-во устройств ──
-    const connectedRef  = ref(db, '.info/connected');
-    const devicesRef    = ref(db, 'siren/devices');
+    const connectedRef = ref(db, '.info/connected');
+    const devicesRef   = ref(db, 'siren/devices');
+
+    // Уникальный ключ для этого устройства в рамках сессии
+    const myDeviceRef  = push(devicesRef);
+    // Удаляем себя при отключении (Firebase делает это на сервере)
+    onDisconnect(myDeviceRef).remove();
 
     onValue(connectedRef, (snap) => {
-      if (!snap.val()) return;
-      // Регистрируем себя, при отключении — удаляемся автоматически
-      const myRef = push(devicesRef);
-      onDisconnect(myRef).remove();
-      set(myRef, { t: Date.now() });
+      if (snap.val()) {
+        // Подключились / переподключились — регистрируемся под тем же ключом
+        set(myDeviceRef, { t: Date.now() });
+      }
     });
 
     onValue(devicesRef, (snap) => {
