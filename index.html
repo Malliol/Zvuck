@@ -206,7 +206,7 @@
   <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-    import { getDatabase, ref, set, onValue, serverTimestamp }
+    import { getDatabase, ref, set, onValue }
       from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
 
     const firebaseConfig = {
@@ -224,19 +224,35 @@
     const stateRef = ref(db, 'siren/state');
 
     // ── UI refs ──
-    const toggle   = document.getElementById('toggle');
-    const statusEl = document.getElementById('status');
-    const bars     = document.getElementById('bars');
-    const onLabel  = document.getElementById('onLabel');
-    const offLabel = document.getElementById('offLabel');
-    const modeBtns = document.querySelectorAll('.mode-btn');
-    const syncDot  = document.getElementById('syncDot');
+    const toggle    = document.getElementById('toggle');
+    const statusEl  = document.getElementById('status');
+    const bars      = document.getElementById('bars');
+    const onLabel   = document.getElementById('onLabel');
+    const offLabel  = document.getElementById('offLabel');
+    const modeBtns  = document.querySelectorAll('.mode-btn');
+    const syncDot   = document.getElementById('syncDot');
     const syncLabel = document.getElementById('syncLabel');
 
     let currentMode = 'siren';
-    let ctx = null;
     let stopFn = null;
-    let ignoreNextChange = false; // prevent feedback loop
+    let ignoreNextChange = false;
+
+    // ── AudioContext: создаём ОДИН РАЗ при первом касании ──
+    // iOS требует жест пользователя — держим ctx живым всё время
+    let ctx = null;
+
+    function ensureCtx() {
+      if (!ctx) {
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      // iOS может приостановить ctx — возобновляем
+      if (ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    }
+
+    // Разблокируем AudioContext при первом любом касании страницы
+    document.addEventListener('touchstart', () => ensureCtx(), { once: true });
+    document.addEventListener('mousedown',  () => ensureCtx(), { once: true });
 
     // ── Sound engines ──
     function startSiren(c) {
@@ -305,28 +321,24 @@
     const labels   = { siren: 'сирена активна', doom: 'дум играет', pew: 'пиу пиу пиу...' };
 
     function startSound() {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-      stopFn = starters[currentMode](ctx);
+      const c = ensureCtx();
+      if (stopFn) { stopFn(); stopFn = null; }
+      stopFn = starters[currentMode](c);
     }
 
     function stopSound() {
-      if (!ctx) return;
-      if (stopFn) stopFn();
-      stopFn = null;
-      setTimeout(() => { if (ctx) { ctx.close(); ctx = null; } }, 350);
+      if (stopFn) { stopFn(); stopFn = null; }
     }
 
-    function applyState(on) {
+    function applyUI(on) {
       toggle.checked = on;
       if (on) {
-        if (!ctx) startSound();
         statusEl.textContent = labels[currentMode];
         statusEl.classList.add('on');
         bars.classList.add('visible');
         onLabel.classList.add('active');
         offLabel.classList.remove('active');
       } else {
-        stopSound();
         statusEl.textContent = 'выключено';
         statusEl.classList.remove('on');
         bars.classList.remove('visible');
@@ -335,7 +347,12 @@
       }
     }
 
-    // ── Firebase listener (remote changes) ──
+    function applyState(on) {
+      applyUI(on);
+      if (on) startSound(); else stopSound();
+    }
+
+    // ── Firebase listener ──
     onValue(stateRef, (snapshot) => {
       syncDot.classList.add('connected');
       syncLabel.textContent = 'синхронизировано';
@@ -346,24 +363,23 @@
       const on   = data.on;
       const mode = data.mode || 'siren';
 
-      // sync mode buttons
       if (mode !== currentMode) {
         currentMode = mode;
         modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
       }
 
-      // apply toggle only if state differs (avoid loop)
       if (on !== toggle.checked) {
         ignoreNextChange = true;
         applyState(on);
       }
-    }, (err) => {
+    }, () => {
       syncLabel.textContent = 'ошибка связи';
     });
 
-    // ── Local toggle → write to Firebase ──
+    // ── Local toggle → Firebase ──
     toggle.addEventListener('change', () => {
       if (ignoreNextChange) { ignoreNextChange = false; return; }
+      applyState(toggle.checked);
       set(stateRef, { on: toggle.checked, mode: currentMode });
     });
 
@@ -378,9 +394,8 @@
           setTimeout(() => {
             startSound();
             statusEl.textContent = labels[currentMode];
-          }, 400);
+          }, 300);
         }
-        // sync mode to Firebase
         set(stateRef, { on: toggle.checked, mode: currentMode });
       });
     });
