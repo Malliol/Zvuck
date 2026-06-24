@@ -268,15 +268,20 @@
       return ctx;
     }
 
-    // Разблокируем AudioContext при первом любом касании страницы
-    document.addEventListener('touchstart', () => ensureCtx(), { once: true });
-    document.addEventListener('mousedown',  () => ensureCtx(), { once: true });
-
-    // ── ПИЗДЕЦ ──
+    // ── ПИЗДЕЦ (объявляем раньше unlock) ──
     const pizdecBtn   = document.getElementById('pizdecBtn');
     const pizdecRef   = ref(db, 'siren/pizdec');
     const pizdecAudio = new Audio('YUrijj_Levitan_-_Vnimanie_Govorit_Moskva_o_nachale_vojjny_74878018.mp3');
     pizdecAudio.loop  = true;
+
+    // Разблокируем AudioContext и аудио при первом любом касании страницы
+    function unlockAudio() {
+      ensureCtx();
+      // iOS блокирует Audio.play() без жеста — делаем silent play для разблокировки
+      pizdecAudio.play().then(() => { if (pizdecAudio.paused) return; pizdecAudio.pause(); pizdecAudio.currentTime = 0; }).catch(() => {});
+    }
+    document.addEventListener('touchstart', unlockAudio, { once: true });
+    document.addEventListener('mousedown',  unlockAudio, { once: true });
 
     function applyPizdec(on) {
       if (on) {
